@@ -4,8 +4,8 @@
   "description": "A Stremio addon featuring essential Palestine documentaries.",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js"
+    "start": "node new.js",
+    "dev": "nodemon new.js"
   },
   "keywords": ["stremio", "addon", "palestine", "documentaries", "torrent"],
   "author": "Your Name",
