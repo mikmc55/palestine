@@ -1,21 +1,24 @@
 const { addonBuilder, serveHTTP } = require("stremio-addon-sdk");
 const WebTorrent = require("webtorrent");
 const express = require("express");
+const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 
-// Magnet URI
+const app = express();
+app.use(cors()); // Enable CORS for Stremio requests
+
+const client = new WebTorrent();
+
+// Magnet URI for the torrent
 const magnetURI =
     "magnet:?xt=urn:btih:382efee548a0a7502e23ce09e5a6550f724e5f0d&dn=Essential+Palestine+Documentaries";
-
-// WebTorrent client
-const client = new WebTorrent();
-const app = express();
 
 // Load torrent files from JSON
 let torrentInfo = { name: "Essential Palestine Documentaries", files: [] };
 try {
-    const data = fs.readFileSync("torrent_files.json", "utf-8");
+    const torrentFilePath = path.join(__dirname, "torrent_files.json");
+    const data = fs.readFileSync(torrentFilePath, "utf-8");
     torrentInfo = JSON.parse(data);
 } catch (error) {
     console.error("Error reading torrent files JSON:", error);
@@ -40,12 +43,6 @@ app.get("/:filename", (req, res) => {
     }
 });
 
-// Start streaming server
-const streamPort = 3000;
-app.listen(streamPort, () => {
-    console.log(`Streaming server running at https://palestine-f67k.onrender.com:${streamPort}`);
-});
-
 // Add-on Manifest
 const manifest = {
     id: "essential-palestine-docs",
@@ -59,9 +56,9 @@ const manifest = {
         {
             type: "other",
             id: "essential-palestine-docs",
-            name: "Essential Palestine Documentaries"
-        }
-    ]
+            name: "Essential Palestine Documentaries",
+        },
+    ],
 };
 
 const builder = new addonBuilder(manifest);
@@ -74,7 +71,7 @@ builder.defineCatalogHandler(({ type, id }) => {
             type: "other",
             name: file.path,
             poster: "https://via.placeholder.com/150", // Placeholder image URL
-            description: `File size: ${file.size}`
+            description: `File size: ${file.size}`,
         }));
         return Promise.resolve({ metas });
     }
@@ -83,7 +80,7 @@ builder.defineCatalogHandler(({ type, id }) => {
 
 // Meta handler
 builder.defineMetaHandler(({ id }) => {
-    const index = parseInt(id.split("_")[1]);
+    const index = parseInt(id.split("_")[1], 10);
     const file = torrentInfo.files[index];
     if (file) {
         return Promise.resolve({
@@ -92,8 +89,8 @@ builder.defineMetaHandler(({ id }) => {
                 type: "other",
                 name: file.path,
                 poster: "https://via.placeholder.com/150",
-                description: `File size: ${file.size}`
-            }
+                description: `File size: ${file.size}`,
+            },
         });
     }
     return Promise.reject("Invalid meta request.");
@@ -101,7 +98,7 @@ builder.defineMetaHandler(({ id }) => {
 
 // Stream handler
 builder.defineStreamHandler(({ id }) => {
-    const index = parseInt(id.split("_")[1]);
+    const index = parseInt(id.split("_")[1], 10);
     const file = torrentInfo.files[index];
     if (file) {
         return new Promise((resolve, reject) => {
@@ -122,15 +119,20 @@ function attachStream(torrent, file, resolve, reject) {
     const streamFile = torrent.files.find(f => f.name === file.path);
     if (streamFile) {
         streamFile.select();
-        const streamURL = `http://localhost:3000/${encodeURIComponent(file.path)}`;
+        const streamURL = `https://${process.env.RENDER_EXTERNAL_HOST}:${process.env.PORT}/${encodeURIComponent(
+            file.path
+        )}`;
         resolve({
-            streams: [{ title: "Stream Now", url: streamURL }]
+            streams: [{ title: "Stream Now", url: streamURL }],
         });
     } else {
         reject("File not found in torrent.");
     }
 }
 
-// Start the add-on server
-serveHTTP(builder.getInterface(), { port: 7000 });
-console.log("Add-on running on http://localhost:7000/manifest.json");
+// Start combined server
+const port = process.env.PORT || 3000;
+serveHTTP(builder.getInterface(), { port });
+app.listen(port, "0.0.0.0", () => {
+    console.log(`Add-on manifest running at https://${process.env.RENDER_EXTERNAL_HOST}:${port}/manifest.json`);
+});
