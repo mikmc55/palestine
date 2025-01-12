@@ -43,7 +43,7 @@ app.get("/:filename", (req, res) => {
 // Start streaming server
 const streamPort = 3000;
 app.listen(streamPort, () => {
-    console.log(`Streaming server running at http://localhost:${streamPort}`);
+    console.log(`Streaming server running at https://palestine-f67k.onrender.com:${streamPort}`);
 });
 
 // Add-on Manifest
